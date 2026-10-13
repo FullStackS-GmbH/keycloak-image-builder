@@ -60,7 +60,9 @@ Rootless BuildKit requires a runner that permits user namespaces. The job uses
 The default destination is the caller's GitLab Container Registry. For another
 registry, supply `registry`, `image_name`, and references to masked CI variables
 in `registry_user`/`registry_password`. Alternatively, provide a complete Docker
-authentication JSON object through a masked `DOCKER_AUTH_CONFIG` variable.
+authentication JSON object through a masked `DOCKER_AUTH_CONFIG` variable and
+set both credential inputs to empty strings. Explicit credential inputs take
+precedence over inherited Docker authentication configuration.
 Credentials are stored in a temporary Docker config directory and removed after
 the job. They are never passed as Docker build arguments.
 

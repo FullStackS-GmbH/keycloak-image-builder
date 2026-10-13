@@ -24,4 +24,5 @@
 
 The job publishes a `keycloak-build-metadata.json` artifact containing the
 BuildKit result, including the image digest. Authentication is read from
-`DOCKER_AUTH_CONFIG` when supplied; it takes precedence over the credential inputs.
+the credential inputs first. `DOCKER_AUTH_CONFIG` is used when the credential
+inputs are empty.

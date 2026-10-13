@@ -84,15 +84,16 @@ spec:
       }
       copy_assets "$KEYCLOAK_THEMES_PATH" themes
       copy_assets "$KEYCLOAK_PROVIDERS_PATH" providers
-      if [ -n "${DOCKER_AUTH_CONFIG:-}" ]; then
-        printf '%s' "$DOCKER_AUTH_CONFIG" > "$DOCKER_CONFIG/config.json"
-        unset DOCKER_AUTH_CONFIG
-      else
-        [ -n "$KEYCLOAK_REGISTRY_USER" ] && [ -n "$KEYCLOAK_REGISTRY_PASSWORD" ] || { echo 'Missing registry credentials'; exit 1; }
+      if [ -n "$KEYCLOAK_REGISTRY_USER" ] && [ -n "$KEYCLOAK_REGISTRY_PASSWORD" ]; then
         printf '%s' "$KEYCLOAK_REGISTRY" | grep -Eq '^[a-zA-Z0-9.-]+(:[0-9]+)?$' || { echo 'Invalid registry host'; exit 1; }
         auth=$(printf '%s:%s' "$KEYCLOAK_REGISTRY_USER" "$KEYCLOAK_REGISTRY_PASSWORD" | base64 | tr -d '\n')
         printf '{"auths":{"%s":{"auth":"%s"}}}' "$KEYCLOAK_REGISTRY" "$auth" > "$DOCKER_CONFIG/config.json"
+      elif [ -n "${DOCKER_AUTH_CONFIG:-}" ]; then
+        printf '%s' "$DOCKER_AUTH_CONFIG" > "$DOCKER_CONFIG/config.json"
+      else
+        echo 'Missing registry credentials'; exit 1
       fi
+      unset DOCKER_AUTH_CONFIG
       buildctl-daemonless.sh build --frontend dockerfile.v0 \
         --local "context=$context" --local "dockerfile=$context" \
         --opt "platform=$KEYCLOAK_PLATFORMS" \

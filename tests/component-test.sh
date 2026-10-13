@@ -32,7 +32,7 @@ export KEYCLOAK_PLATFORMS=linux/amd64,linux/arm64
 export KEYCLOAK_IMAGE_NAME=registry.example.test/team/keycloak KEYCLOAK_IMAGE_TAG=test-1
 export KEYCLOAK_REGISTRY=registry.example.test KEYCLOAK_REGISTRY_USER=ci-user
 export KEYCLOAK_REGISTRY_PASSWORD='test-password-"-with-special-characters'
-unset DOCKER_AUTH_CONFIG
+export DOCKER_AUTH_CONFIG='{"auths":{"other.example.test":{"auth":"dGVzdDp0ZXN0"}}}'
 sh "$workspace/job.sh" > "$workspace/job.log" 2>&1
 [[ -f "$CAPTURE_DIR/context/themes/example/login/theme.properties" ]]
 [[ "$(cat "$CAPTURE_DIR/context/Dockerfile")" == "$dockerfile" ]]
@@ -51,6 +51,7 @@ if sh "$workspace/job.sh" > "$workspace/invalid.log" 2>&1; then
   echo 'Asset path outside the repository was accepted' >&2; exit 1
 fi
 export KEYCLOAK_THEMES_PATH=''
+export KEYCLOAK_REGISTRY_USER='' KEYCLOAK_REGISTRY_PASSWORD=''
 export DOCKER_AUTH_CONFIG='{"auths":{"registry.example.test":{"auth":"dGVzdDp0ZXN0"}}}'
 sh "$workspace/job.sh" > "$workspace/job.log" 2>&1
 [[ $(jq -r '.auths["registry.example.test"].auth' "$CAPTURE_DIR/auth.json") == dGVzdDp0ZXN0 ]]
