@@ -1,0 +1,130 @@
+# Source for templates/build-keycloak/template.yml. Run scripts/render-component.sh.
+spec:
+  inputs:
+    job_name:
+      default: build-keycloak
+    stage:
+      default: build
+    rules:
+      type: array
+      default:
+        - if: '$CI_COMMIT_BRANCH || $CI_COMMIT_TAG'
+    tags:
+      type: array
+      default: [fullstacks]
+    keycloak_image:
+      default: quay.io/keycloak/keycloak:26.8.0@sha256:b0f60d489d51c5d113390bdf5461d4c06e6051be026c05549f2e1e10ec352bcc
+      description: Full Keycloak image reference; use a tag and digest for reproducibility.
+    db:
+      default: postgres
+      options: [postgres, mysql, mariadb, oracle, mssql, dev-file, dev-mem]
+    health_enabled:
+      type: boolean
+      default: true
+    metrics_enabled:
+      type: boolean
+      default: true
+    features:
+      default: ''
+      description: Comma-separated Keycloak build features.
+    features_disabled:
+      default: ''
+    themes_path:
+      default: ''
+      description: Directory in the calling repository containing theme directories.
+    providers_path:
+      default: ''
+      description: Directory in the calling repository containing provider JARs.
+    platforms:
+      default: linux/amd64
+      description: Comma-separated linux/amd64 and/or linux/arm64. Cross-builds need runner emulation.
+    image_name:
+      default: $CI_REGISTRY_IMAGE
+    image_tag:
+      default: $CI_COMMIT_SHORT_SHA
+    registry:
+      default: $CI_REGISTRY
+    registry_user:
+      default: $CI_REGISTRY_USER
+      description: Reference a masked CI variable; do not pass a literal secret.
+    registry_password:
+      default: $CI_REGISTRY_PASSWORD
+      description: Reference a masked CI variable; do not pass a literal secret.
+    buildkit_image:
+      default: moby/buildkit:v0.34.0-rootless@sha256:65eca3c01cd1180c8f64565c4e3c5983af5145818b0e6fa863385d099eb73855
+---
+"$[[ inputs.job_name ]]":
+  stage: $[[ inputs.stage ]]
+  rules: $[[ inputs.rules ]]
+  tags: $[[ inputs.tags ]]
+  image:
+    name: $[[ inputs.buildkit_image ]]
+    entrypoint: ['']
+  script:
+    - |
+      set -eu
+      printf '%s' "$KEYCLOAK_PLATFORMS" | grep -Eq '^linux/(amd64|arm64)(,linux/(amd64|arm64))*$' || { echo 'Invalid platforms'; exit 1; }
+      printf '%s' "$KEYCLOAK_IMAGE_TAG" | grep -Eq '^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$' || { echo 'Invalid image tag'; exit 1; }
+      printf '%s' "$KEYCLOAK_IMAGE_NAME" | grep -Eq '^[a-z0-9][a-z0-9._:/-]+$' || { echo 'Invalid image name'; exit 1; }
+      context=$(mktemp -d)
+      DOCKER_CONFIG=$(mktemp -d)
+      export DOCKER_CONFIG
+      trap 'rm -rf "$context" "$DOCKER_CONFIG"' EXIT
+      mkdir -p "$context/themes" "$context/providers"
+      touch "$context/themes/.gitkeep" "$context/providers/.gitkeep"
+      printf '%s\n' "$KEYCLOAK_DOCKERFILE" > "$context/Dockerfile"
+      copy_assets() {
+        [ -n "$1" ] || return 0
+        case "$1" in /*) echo 'Asset paths must be relative to CI_PROJECT_DIR'; exit 1;; esac
+        source=$(cd "$CI_PROJECT_DIR/$1" && pwd -P)
+        root=$(cd "$CI_PROJECT_DIR" && pwd -P)
+        case "$source" in "$root"/*) ;; *) echo 'Asset path must remain inside CI_PROJECT_DIR'; exit 1;; esac
+        cp -R "$source/." "$context/$2/"
+      }
+      copy_assets "$KEYCLOAK_THEMES_PATH" themes
+      copy_assets "$KEYCLOAK_PROVIDERS_PATH" providers
+      if [ -n "${DOCKER_AUTH_CONFIG:-}" ]; then
+        printf '%s' "$DOCKER_AUTH_CONFIG" > "$DOCKER_CONFIG/config.json"
+        unset DOCKER_AUTH_CONFIG
+      else
+        [ -n "$KEYCLOAK_REGISTRY_USER" ] && [ -n "$KEYCLOAK_REGISTRY_PASSWORD" ] || { echo 'Missing registry credentials'; exit 1; }
+        printf '%s' "$KEYCLOAK_REGISTRY" | grep -Eq '^[a-zA-Z0-9.-]+(:[0-9]+)?$' || { echo 'Invalid registry host'; exit 1; }
+        auth=$(printf '%s:%s' "$KEYCLOAK_REGISTRY_USER" "$KEYCLOAK_REGISTRY_PASSWORD" | base64 | tr -d '\n')
+        printf '{"auths":{"%s":{"auth":"%s"}}}' "$KEYCLOAK_REGISTRY" "$auth" > "$DOCKER_CONFIG/config.json"
+      fi
+      buildctl-daemonless.sh build --frontend dockerfile.v0 \
+        --local "context=$context" --local "dockerfile=$context" \
+        --opt "platform=$KEYCLOAK_PLATFORMS" \
+        --opt "build-arg:KEYCLOAK_IMAGE=$KEYCLOAK_BASE_IMAGE" \
+        --opt "build-arg:KC_DB=$KEYCLOAK_DB" \
+        --opt "build-arg:KC_HEALTH_ENABLED=$KEYCLOAK_HEALTH" \
+        --opt "build-arg:KC_METRICS_ENABLED=$KEYCLOAK_METRICS" \
+        --opt "build-arg:KC_FEATURES=$KEYCLOAK_FEATURES" \
+        --opt "build-arg:KC_FEATURES_DISABLED=$KEYCLOAK_FEATURES_DISABLED" \
+        --opt "build-arg:VCS_REF=$CI_COMMIT_SHA" \
+        --opt "build-arg:IMAGE_VERSION=$KEYCLOAK_IMAGE_TAG" \
+        --opt "build-arg:SOURCE_URL=$CI_PROJECT_URL" \
+        --output "type=image,name=$KEYCLOAK_IMAGE_NAME:$KEYCLOAK_IMAGE_TAG,push=true" \
+        --metadata-file "$CI_PROJECT_DIR/keycloak-build-metadata.json"
+  artifacts:
+    paths: [keycloak-build-metadata.json]
+  variables:
+    BUILDKITD_FLAGS: --oci-worker-no-process-sandbox
+    BUILDKIT_PROGRESS: plain
+    KEYCLOAK_BASE_IMAGE: "$[[ inputs.keycloak_image ]]"
+    KEYCLOAK_DB: "$[[ inputs.db ]]"
+    KEYCLOAK_HEALTH: "$[[ inputs.health_enabled ]]"
+    KEYCLOAK_METRICS: "$[[ inputs.metrics_enabled ]]"
+    KEYCLOAK_FEATURES: "$[[ inputs.features ]]"
+    KEYCLOAK_FEATURES_DISABLED: "$[[ inputs.features_disabled ]]"
+    KEYCLOAK_THEMES_PATH: "$[[ inputs.themes_path ]]"
+    KEYCLOAK_PROVIDERS_PATH: "$[[ inputs.providers_path ]]"
+    KEYCLOAK_PLATFORMS: "$[[ inputs.platforms ]]"
+    KEYCLOAK_IMAGE_NAME: "$[[ inputs.image_name ]]"
+    KEYCLOAK_IMAGE_TAG: "$[[ inputs.image_tag ]]"
+    KEYCLOAK_REGISTRY: "$[[ inputs.registry ]]"
+    KEYCLOAK_REGISTRY_USER: "$[[ inputs.registry_user ]]"
+    KEYCLOAK_REGISTRY_PASSWORD: "$[[ inputs.registry_password ]]"
+    KEYCLOAK_DOCKERFILE:
+      expand: false
+      value: |
