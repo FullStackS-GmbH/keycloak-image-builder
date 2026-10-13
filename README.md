@@ -33,15 +33,17 @@ No release tag exists yet; use a real commit SHA after publishing this repositor
 ## Local image build
 
 ```sh
-docker build -t keycloak:local .
-docker build -t keycloak:custom \
-  --build-arg KEYCLOAK_IMAGE=quay.io/keycloak/keycloak:26.8.0 \
-  --build-arg KC_DB=postgres \
-  --build-arg KC_FEATURES=scripts \
-  --build-arg KC_METRICS_ENABLED=false .
+make build
+make build IMAGE=keycloak:custom DB=postgres FEATURES=scripts METRICS_ENABLED=false
+make build-arm64 IMAGE=keycloak:arm64
+make build THEMES_PATH=/path/to/caller/themes IMAGE=keycloak:branded
 ```
 
-Put local assets in `themes/` and `providers/`. The default command is
+Put local assets in `themes/` and `providers/`, or set `THEMES_PATH` and
+`PROVIDERS_PATH` to existing directories. `make build` uses the host architecture
+by default; override `PLATFORM=linux/amd64` or `PLATFORM=linux/arm64` as needed.
+`KEYCLOAK_IMAGE` overrides the base image and `FEATURES_DISABLED` disables features.
+The default command is
 `start --optimized`. Configure `KC_DB_URL`, database credentials, `KC_HOSTNAME`,
 TLS and any bootstrap administrator at runtime. Secrets and realm imports are
 not built into the image. Build-time options such as the database vendor and
@@ -69,11 +71,13 @@ the job. They are never passed as Docker build arguments.
 ## Development
 
 `Dockerfile` and `ci/component.yml` are the editable sources. Generate the
-self-contained component with `bash scripts/render-component.sh`.
+self-contained component with `make generate`.
 
 ```sh
-bash tests/component-test.sh  # requires Bash, yq v4, jq and ripgrep
-bash tests/integration-test.sh  # requires Docker, Bash, curl, jq, ripgrep and zip
+make help
+make test              # requires Bash, yq v4, jq and ripgrep
+make test-integration  # also requires Docker, curl and zip; tests the native architecture
+make ci-lint           # requires authenticated glab access to GitLab
 KEYCLOAK_URL=http://localhost:8080 \
 MANAGEMENT_URL=http://localhost:9000 bash scripts/smoke-test.sh
 ```
@@ -81,6 +85,19 @@ MANAGEMENT_URL=http://localhost:9000 bash scripts/smoke-test.sh
 The component tests check asset isolation, argument forwarding, authentication
 and generated-file consistency. The CI pipeline builds the component against
 itself and starts the image with PostgreSQL to check readiness, OIDC and metrics.
+
+| Target | Purpose |
+| --- | --- |
+| `help` | List targets and build parameters. |
+| `generate` | Regenerate the component after source changes. |
+| `check` | Fail when the generated component is stale. |
+| `lint` | Check generated consistency and shell/YAML syntax. |
+| `test` | Run component tests without Docker. |
+| `test-integration` | Build native images and check isolated PostgreSQL startup and customization. |
+| `build` | Build and load a parameterized image locally. |
+| `build-amd64`, `build-arm64` | Build and load one explicit architecture. |
+| `ci-lint` | Validate the current combined pipeline through GitLab's API. |
+| `clean` | Remove local build metadata; preserves generated source and Docker resources. |
 
 References: [Keycloak container builds](https://www.keycloak.org/server/containers),
 [GitLab components](https://docs.gitlab.com/ci/components/),

@@ -12,9 +12,9 @@ component-tests:
   image: alpine:3.24
   tags: [fullstacks]
   before_script:
-    - apk add --no-cache bash jq yq ripgrep
+    - apk add --no-cache bash jq yq ripgrep make
   script:
-    - bash tests/component-test.sh
+    - make test
 
 smoke-test:
   stage: test
