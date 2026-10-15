@@ -1,13 +1,36 @@
 include:
+  - local: ci/renovate.yaml
   - local: templates/build-keycloak/template.yml
     inputs:
       image_name: $CI_REGISTRY_IMAGE/test
       image_tag: $CI_COMMIT_SHA
       themes_path: tests/fixtures/themes
+      rules:
+        - if: '$CI_PIPELINE_SOURCE == "schedule" && $MAINTENANCE_TASK == "renovate"'
+          when: never
+        - when: on_success
 
-stages: [validate, build, test]
+stages: [maintenance, validate, build, test]
+
+.regular:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $MAINTENANCE_TASK == "renovate"'
+      when: never
+    - when: on_success
+
+renovate-config:
+  extends: .regular
+  stage: validate
+  tags: [fullstacks]
+  image:
+    name: renovate/renovate:44.148.4@sha256:2c7b118cb2d1b7137e63322efc0e1d3d96d5f6937ec1c35c3cd9b7de73a8ed29
+    entrypoint: ['']
+  script:
+    - renovate-config-validator --strict --no-global renovate.json
+    - renovate-config-validator --strict ci/renovate.cjs
 
 component-tests:
+  extends: .regular
   stage: validate
   image: alpine:3.24
   tags: [fullstacks]
@@ -17,6 +40,7 @@ component-tests:
     - make test
 
 smoke-test:
+  extends: .regular
   stage: test
   image: alpine:3.24
   tags: [fullstacks]

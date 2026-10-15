@@ -5,6 +5,8 @@ bash scripts/render-component.sh --check
 job='.["$[[ inputs.job_name ]]"]'
 [[ $(yq eval-all "select(documentIndex == 1) | $job.variables.KEYCLOAK_DOCKERFILE.expand" templates/build-keycloak/template.yml) == false ]]
 dockerfile=$(yq eval-all "select(documentIndex == 1) | $job.variables.KEYCLOAK_DOCKERFILE.value" templates/build-keycloak/template.yml)
+default_image=$(yq eval-all 'select(documentIndex == 0) | .spec.inputs.keycloak_image.default' templates/build-keycloak/template.yml)
+[[ "$default_image" == "$(sed -n 's/^ARG KEYCLOAK_IMAGE=//p' Dockerfile)" ]]
 [[ "$dockerfile" == "$(cat Dockerfile)" ]]
 workspace=$(mktemp -d)
 trap 'rm -rf "$workspace"' EXIT
@@ -23,7 +25,9 @@ cp "$DOCKER_CONFIG/config.json" "$CAPTURE_DIR/auth.json"
 STUB
 chmod +x "$workspace/bin/buildctl-daemonless.sh"
 export PATH="$workspace/bin:$PATH"
-export CI_PROJECT_DIR="$PWD" CI_COMMIT_SHA=0123456789 CI_PROJECT_URL=https://gitlab.com/example/keycloak
+mkdir -p "$workspace/project/tests"
+cp -R tests/fixtures "$workspace/project/tests/"
+export CI_PROJECT_DIR="$workspace/project" CI_COMMIT_SHA=0123456789 CI_PROJECT_URL=https://gitlab.com/example/keycloak
 export KEYCLOAK_DOCKERFILE="$dockerfile" KEYCLOAK_BASE_IMAGE=quay.io/keycloak/keycloak:26.8.0
 export KEYCLOAK_DB=mysql KEYCLOAK_HEALTH=false KEYCLOAK_METRICS=false
 export KEYCLOAK_FEATURES=scripts KEYCLOAK_FEATURES_DISABLED=''
@@ -34,6 +38,7 @@ export KEYCLOAK_REGISTRY=registry.example.test KEYCLOAK_REGISTRY_USER=ci-user
 export KEYCLOAK_REGISTRY_PASSWORD='test-password-"-with-special-characters'
 export DOCKER_AUTH_CONFIG='{"auths":{"other.example.test":{"auth":"dGVzdDp0ZXN0"}}}'
 sh "$workspace/job.sh" > "$workspace/job.log" 2>&1
+[[ "$(cat "$CI_PROJECT_DIR/keycloak-base-image.txt")" == "$KEYCLOAK_BASE_IMAGE" ]]
 [[ -f "$CAPTURE_DIR/context/themes/example/login/theme.properties" ]]
 [[ "$(cat "$CAPTURE_DIR/context/Dockerfile")" == "$dockerfile" ]]
 rg -q '^platform=linux/amd64,linux/arm64$' "$CAPTURE_DIR/args"

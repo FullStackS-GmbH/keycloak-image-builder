@@ -1,7 +1,7 @@
 # Keycloak image build component
 
 Build and publish an optimized Keycloak image using rootless BuildKit. The image
-defaults to Keycloak 26.8.0, PostgreSQL, health endpoints and metrics. Both the
+uses the Keycloak image pinned in `Dockerfile`, PostgreSQL, health endpoints and metrics. Both the
 Keycloak and BuildKit defaults are pinned by digest.
 
 ## GitLab CI usage
@@ -85,6 +85,30 @@ MANAGEMENT_URL=http://localhost:9000 bash scripts/smoke-test.sh
 The component tests check asset isolation, argument forwarding, authentication
 and generated-file consistency. The CI pipeline builds the component against
 itself and starts the image with PostgreSQL to check readiness, OIDC and metrics.
+
+## Central dependency updates
+
+`Dockerfile` owns the default Keycloak version and digest. The generator derives
+the component input default from it and embeds the Dockerfile into the template.
+Renovate updates the Dockerfile and runs `bash scripts/render-component.sh` in the
+same update branch, keeping the generated template consistent. Only Dockerfile
+dependencies are managed initially; Keycloak stays on stable 26.x.
+
+Set up a project access token with Developer role and `api` scope in this project.
+Store it as masked, protected `RENOVATE_TOKEN` without variable expansion. Create a
+schedule on protected `main` with `MAINTENANCE_TASK=renovate`, for example `0 7 * * *`
+in `Europe/Vienna`. Test with `RENOVATE_DRY_RUN=full`, then remove that variable.
+The bot is restricted to this project and only the generator command is allowed
+as a post-upgrade task. No consumer project access is required.
+
+Consumers can follow `build-keycloak@main` and omit `keycloak_image` to adopt
+central updates in their next build. A central merge does not automatically start
+consumer builds. A fixed component commit is an alternative for reproducible
+component selection. Each build publishes `keycloak-base-image.txt` alongside its
+BuildKit metadata to record the actual base image, including explicit overrides.
+
+See [Renovate post-upgrade tasks](https://docs.renovatebot.com/configuration-options/#postupgradetasks)
+and [GitLab authentication](https://docs.renovatebot.com/modules/platform/gitlab/#authentication).
 
 | Target | Purpose |
 | --- | --- |

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":dependencyDashboard", "docker:pinDigests"],
+  "enabledManagers": ["dockerfile"],
+  "timezone": "Europe/Vienna",
+  "automerge": false,
+  "packageRules": [
+    {
+      "matchPackageNames": ["quay.io/keycloak/keycloak"],
+      "allowedVersions": ">=26.0.0 <27.0.0",
+      "ignoreUnstable": true
+    }
+  ],
+  "postUpgradeTasks": {
+    "commands": ["bash scripts/render-component.sh"],
+    "fileFilters": ["templates/build-keycloak/template.yml"],
+    "executionMode": "branch"
+  }
+}
