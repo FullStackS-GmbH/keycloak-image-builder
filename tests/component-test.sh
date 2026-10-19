@@ -39,6 +39,17 @@ export KEYCLOAK_REGISTRY_PASSWORD='test-password-"-with-special-characters'
 export DOCKER_AUTH_CONFIG='{"auths":{"other.example.test":{"auth":"dGVzdDp0ZXN0"}}}'
 export CI_JOB_ID=101
 sh "$workspace/job.sh" > "$workspace/job.log" 2>&1
+summary="$CI_PROJECT_DIR/keycloak-builds/101/build-parameters.txt"
+rg -qx 'Database: mysql' "$summary"
+rg -qx 'Health: false' "$summary"
+rg -qx 'Platforms: linux/amd64,linux/arm64' "$summary"
+rg -qx 'Features: scripts' "$summary"
+rg -qx 'Providers: none' "$summary"
+while IFS= read -r line; do
+  rg -Fqx -- "$line" "$workspace/job.log"
+done < "$summary"
+! rg -Fq -- "$KEYCLOAK_REGISTRY_PASSWORD" "$summary"
+! rg -Fq -- "$DOCKER_AUTH_CONFIG" "$summary"
 [[ "$(cat "$CI_PROJECT_DIR/keycloak-builds/101/keycloak-base-image.txt")" == "$KEYCLOAK_BASE_IMAGE" ]]
 export CI_JOB_ID=102 KEYCLOAK_BASE_IMAGE=quay.io/keycloak/keycloak:test-second
 sh "$workspace/job.sh" > "$workspace/job.log" 2>&1

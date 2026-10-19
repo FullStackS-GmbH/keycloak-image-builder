@@ -26,3 +26,6 @@ The job publishes a `keycloak-builds/<job-id>/keycloak-build-metadata.json` arti
 BuildKit result, including the image digest. Authentication is read from
 the credential inputs first. `DOCKER_AUTH_CONFIG` is used when the credential
 inputs are empty.
+
+Resolved build parameters are printed in the job log and saved as
+`keycloak-builds/<job-id>/build-parameters.txt`.
