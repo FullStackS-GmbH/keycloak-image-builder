@@ -64,7 +64,9 @@ spec:
   script:
     - |
       set -eu
-      printf '%s\n' "$KEYCLOAK_BASE_IMAGE" > "$CI_PROJECT_DIR/keycloak-base-image.txt"
+      artifacts="$CI_PROJECT_DIR/keycloak-builds/$CI_JOB_ID"
+      mkdir -p "$artifacts"
+      printf '%s\n' "$KEYCLOAK_BASE_IMAGE" > "$artifacts/keycloak-base-image.txt"
       printf '%s' "$KEYCLOAK_PLATFORMS" | grep -Eq '^linux/(amd64|arm64)(,linux/(amd64|arm64))*$' || { echo 'Invalid platforms'; exit 1; }
       printf '%s' "$KEYCLOAK_IMAGE_TAG" | grep -Eq '^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$' || { echo 'Invalid image tag'; exit 1; }
       printf '%s' "$KEYCLOAK_IMAGE_NAME" | grep -Eq '^[a-z0-9][a-z0-9._:/-]+$' || { echo 'Invalid image name'; exit 1; }
@@ -108,9 +110,9 @@ spec:
         --opt "build-arg:IMAGE_VERSION=$KEYCLOAK_IMAGE_TAG" \
         --opt "build-arg:SOURCE_URL=$CI_PROJECT_URL" \
         --output "type=image,name=$KEYCLOAK_IMAGE_NAME:$KEYCLOAK_IMAGE_TAG,push=true" \
-        --metadata-file "$CI_PROJECT_DIR/keycloak-build-metadata.json"
+        --metadata-file "$artifacts/keycloak-build-metadata.json"
   artifacts:
-    paths: [keycloak-build-metadata.json, keycloak-base-image.txt]
+    paths: ["keycloak-builds/$CI_JOB_ID/"]
   variables:
     BUILDKITD_FLAGS: --oci-worker-no-process-sandbox
     BUILDKIT_PROGRESS: plain

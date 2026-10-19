@@ -31,14 +31,7 @@ docker build -t "$variant" \
   --build-arg KC_METRICS_ENABLED=false \
   --build-arg KC_FEATURES=scripts \
   --build-arg KC_FEATURES_DISABLED=impersonation "$workspace/context"
-docker run --rm "$variant" show-config > "$workspace/config.txt"
-rg -q 'kc.db =\s+dev-file' "$workspace/config.txt"
-rg -q 'kc.features =\s+scripts' "$workspace/config.txt"
-rg -q 'kc.features-disabled =\s+impersonation' "$workspace/config.txt"
-rg -q 'kc.health-enabled =\s+false' "$workspace/config.txt"
-rg -q 'kc.metrics-enabled =\s+false' "$workspace/config.txt"
-docker run --rm --entrypoint /bin/sh "$variant" -c \
-  'test -f /opt/keycloak/themes/example/login/theme.properties && test "$(stat -c %Y /opt/keycloak/providers/test-resource.jar)" = 1743465600'
+docker run --rm -i --entrypoint /bin/sh "$variant" < scripts/check-customization.sh
 docker network create "$network" > /dev/null
 docker run -d --name "$postgres" --network "$network" --network-alias postgres \
   -e POSTGRES_DB=keycloak -e POSTGRES_USER=keycloak -e POSTGRES_PASSWORD=integration-only \

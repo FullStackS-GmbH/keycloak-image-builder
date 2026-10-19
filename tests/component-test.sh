@@ -37,8 +37,13 @@ export KEYCLOAK_IMAGE_NAME=registry.example.test/team/keycloak KEYCLOAK_IMAGE_TA
 export KEYCLOAK_REGISTRY=registry.example.test KEYCLOAK_REGISTRY_USER=ci-user
 export KEYCLOAK_REGISTRY_PASSWORD='test-password-"-with-special-characters'
 export DOCKER_AUTH_CONFIG='{"auths":{"other.example.test":{"auth":"dGVzdDp0ZXN0"}}}'
+export CI_JOB_ID=101
 sh "$workspace/job.sh" > "$workspace/job.log" 2>&1
-[[ "$(cat "$CI_PROJECT_DIR/keycloak-base-image.txt")" == "$KEYCLOAK_BASE_IMAGE" ]]
+[[ "$(cat "$CI_PROJECT_DIR/keycloak-builds/101/keycloak-base-image.txt")" == "$KEYCLOAK_BASE_IMAGE" ]]
+export CI_JOB_ID=102 KEYCLOAK_BASE_IMAGE=quay.io/keycloak/keycloak:test-second
+sh "$workspace/job.sh" > "$workspace/job.log" 2>&1
+[[ "$(cat "$CI_PROJECT_DIR/keycloak-builds/101/keycloak-base-image.txt")" == quay.io/keycloak/keycloak:26.8.0 ]]
+[[ "$(cat "$CI_PROJECT_DIR/keycloak-builds/102/keycloak-base-image.txt")" == "$KEYCLOAK_BASE_IMAGE" ]]
 [[ -f "$CAPTURE_DIR/context/themes/example/login/theme.properties" ]]
 [[ "$(cat "$CAPTURE_DIR/context/Dockerfile")" == "$dockerfile" ]]
 rg -q '^platform=linux/amd64,linux/arm64$' "$CAPTURE_DIR/args"

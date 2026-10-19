@@ -22,7 +22,7 @@
 | `tags` | `[fullstacks]` | Runner tags; adapt for native ARM runners. |
 | `buildkit_image` | BuildKit v0.34.0 rootless with digest | Builder image override. |
 
-The job publishes a `keycloak-build-metadata.json` artifact containing the
+The job publishes a `keycloak-builds/<job-id>/keycloak-build-metadata.json` artifact containing the
 BuildKit result, including the image digest. Authentication is read from
 the credential inputs first. `DOCKER_AUTH_CONFIG` is used when the credential
 inputs are empty.

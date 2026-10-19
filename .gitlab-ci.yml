@@ -35,9 +35,36 @@ component-tests:
   image: alpine:3.24
   tags: [fullstacks]
   before_script:
-    - apk add --no-cache bash jq yq ripgrep make
+    - apk add --no-cache bash jq yq ripgrep make zip
   script:
     - make test
+    - mkdir -p test-providers
+    - |
+      printf 'Manifest-Version: 1.0\n\n' > test-providers/MANIFEST.MF
+    - zip -j test-providers/test-resource.jar test-providers/MANIFEST.MF
+  artifacts:
+    paths: [test-providers/]
+
+build-custom:
+  extends: build-keycloak
+  variables:
+    KEYCLOAK_DB: dev-file
+    KEYCLOAK_HEALTH: 'false'
+    KEYCLOAK_METRICS: 'false'
+    KEYCLOAK_FEATURES: scripts
+    KEYCLOAK_FEATURES_DISABLED: impersonation
+    KEYCLOAK_PROVIDERS_PATH: test-providers
+    KEYCLOAK_IMAGE_TAG: $CI_COMMIT_SHA-custom
+
+customization-test:
+  extends: .regular
+  stage: test
+  tags: [fullstacks]
+  image:
+    name: $CI_REGISTRY_IMAGE/test:$CI_COMMIT_SHA-custom
+    entrypoint: ['']
+  script:
+    - sh scripts/check-customization.sh
 
 smoke-test:
   extends: .regular
