@@ -26,7 +26,7 @@ check: ## Check that the generated component matches its sources
 
 lint: check ## Check shell and YAML syntax
 	@set -euo pipefail; for script in scripts/*.sh tests/*.sh; do bash -n "$$script"; done
-	yq eval-all '.' ci/component.yml templates/build-keycloak/template.yml .gitlab-ci.yml > /dev/null
+	yq eval-all '.' ci/component.yml ci/renovate.yaml templates/build-keycloak/template.yml .gitlab-ci.yml > /dev/null
 
 test: lint ## Test component inputs, build context and authentication without Docker
 	bash tests/component-test.sh
@@ -58,7 +58,7 @@ ci-lint: check ## Validate the current pipeline using authenticated GitLab CI Li
 	@set -euo pipefail; workspace=$$(mktemp -d); trap 'rm -rf "$$workspace"' EXIT; \
 	  yq eval-all 'select(documentIndex == 0) | .spec.inputs.image_name.default = "$$CI_REGISTRY_IMAGE/test" | .spec.inputs.image_tag.default = "$$CI_COMMIT_SHA" | .spec.inputs.themes_path.default = "tests/fixtures/themes"' templates/build-keycloak/template.yml > "$$workspace/ci.yml"; \
 	  printf '\n---\n' >> "$$workspace/ci.yml"; \
-	  yq eval-all 'select(fileIndex == 0 and documentIndex == 1) * (select(fileIndex == 1) | del(.include))' templates/build-keycloak/template.yml .gitlab-ci.yml >> "$$workspace/ci.yml"; \
+	  yq eval-all 'select(fileIndex == 0 and documentIndex == 1) * (select(fileIndex == 1) | del(.include)) * select(fileIndex == 2)' templates/build-keycloak/template.yml .gitlab-ci.yml ci/renovate.yaml >> "$$workspace/ci.yml"; \
 	  jq -n --rawfile content "$$workspace/ci.yml" '{content: $$content}' > "$$workspace/request.json"; \
 	  glab api 'projects/fullstacks-gmbh%2Fcicd-components%2Fkeycloak/ci/lint' \
 	    --method POST --header 'Content-Type: application/json' --input "$$workspace/request.json" > "$$workspace/result.json"; \
@@ -67,3 +67,4 @@ ci-lint: check ## Validate the current pipeline using authenticated GitLab CI Li
 
 clean: ## Remove local BuildKit metadata (keeps images, containers and generated source)
 	rm -f keycloak-build-metadata.json
+	rm -rf keycloak-builds

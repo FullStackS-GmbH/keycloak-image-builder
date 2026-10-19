@@ -104,7 +104,7 @@ as a post-upgrade task. No consumer project access is required.
 Consumers can follow `build-keycloak@main` and omit `keycloak_image` to adopt
 central updates in their next build. A central merge does not automatically start
 consumer builds. A fixed component commit is an alternative for reproducible
-component selection. Each build publishes `keycloak-base-image.txt` alongside its
+component selection. Each build publishes `keycloak-builds/<job-id>/keycloak-base-image.txt` alongside its
 BuildKit metadata to record the actual base image, including explicit overrides.
 
 See [Renovate post-upgrade tasks](https://docs.renovatebot.com/configuration-options/#postupgradetasks)

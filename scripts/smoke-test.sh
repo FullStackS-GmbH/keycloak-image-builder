@@ -11,7 +11,7 @@ for ((attempt = 0; attempt < 90; attempt++)); do
   sleep 2
 done
 [[ "$ready" == true ]] || { echo 'Keycloak did not become ready' >&2; exit 1; }
-curl --fail --silent "$keycloak_url/realms/master/.well-known/openid-configuration" |
+curl --fail --silent --max-time 10 "$keycloak_url/realms/master/.well-known/openid-configuration" |
   jq -e '.issuer | endswith("/realms/master")' > /dev/null
 metrics=$(mktemp)
 trap 'rm -f "$metrics"' EXIT
