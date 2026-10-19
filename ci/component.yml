@@ -69,6 +69,18 @@ spec:
       printf '%s' "$KEYCLOAK_PLATFORMS" | grep -Eq '^linux/(amd64|arm64)(,linux/(amd64|arm64))*$' || { echo 'Invalid platforms'; exit 1; }
       printf '%s' "$KEYCLOAK_IMAGE_TAG" | grep -Eq '^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$' || { echo 'Invalid image tag'; exit 1; }
       printf '%s' "$KEYCLOAK_IMAGE_NAME" | grep -Eq '^[a-z0-9][a-z0-9._:/-]+$' || { echo 'Invalid image name'; exit 1; }
+      printf '%s\n' \
+        "Database: $KEYCLOAK_DB" \
+        "Health: $KEYCLOAK_HEALTH" \
+        "Metrics: $KEYCLOAK_METRICS" \
+        "Platforms: $KEYCLOAK_PLATFORMS" \
+        "Themes: ${KEYCLOAK_THEMES_PATH:-none}" \
+        "Providers: ${KEYCLOAK_PROVIDERS_PATH:-none}" \
+        "Features: ${KEYCLOAK_FEATURES:-none}" \
+        "Disabled features: ${KEYCLOAK_FEATURES_DISABLED:-none}" \
+        "Base image: $KEYCLOAK_BASE_IMAGE" \
+        "Image: $KEYCLOAK_IMAGE_NAME:$KEYCLOAK_IMAGE_TAG" \
+        | tee "$artifacts/build-parameters.txt"
       context=$(mktemp -d)
       DOCKER_CONFIG=$(mktemp -d)
       export DOCKER_CONFIG
