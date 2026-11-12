@@ -1,0 +1,117 @@
+name: Build Keycloak image
+description: >-
+  Build and publish an optimized Keycloak image from this repository's
+  Dockerfile, with optional caller themes and provider JARs.
+author: FULLSTACKS GmbH
+branding:
+  icon: lock
+  color: blue
+
+inputs:
+  keycloak-image:
+    description: Full Keycloak base image reference. Empty uses the digest-pinned default in Dockerfile.
+    default: ''
+  db:
+    description: Build-time database vendor (postgres, mysql, mariadb, oracle, mssql, dev-file, dev-mem).
+    default: postgres
+  health-enabled:
+    description: Build health endpoints into the image.
+    default: 'true'
+  metrics-enabled:
+    description: Build metrics support into the image.
+    default: 'true'
+  features:
+    description: Comma-separated Keycloak build features.
+    default: ''
+  features-disabled:
+    description: Comma-separated Keycloak features to disable.
+    default: ''
+  themes-path:
+    description: Directory in the calling repository (relative to GITHUB_WORKSPACE) containing theme directories.
+    default: ''
+  providers-path:
+    description: Directory in the calling repository (relative to GITHUB_WORKSPACE) containing provider JARs.
+    default: ''
+  platforms:
+    description: Comma-separated linux/amd64 and/or linux/arm64. QEMU is set up when more than one is given.
+    default: linux/amd64
+  image-name:
+    description: Full destination image name without a tag. Lowercased automatically.
+    default: ghcr.io/${{ github.repository }}
+  image-tag:
+    description: Single destination tag.
+    default: ${{ github.sha }}
+  push:
+    description: Push the image. Set to false to only build (for example on pull requests).
+    default: 'true'
+  registry:
+    description: Registry host for login, optionally including a port.
+    default: ghcr.io
+  registry-user:
+    description: Registry user.
+    default: ${{ github.actor }}
+  registry-password:
+    description: >-
+      Registry password or token. Defaults to the workflow token (needs packages: write
+      for ghcr.io). Set to an empty string to skip login and use credentials from an
+      earlier docker/login-action step.
+    default: ${{ github.token }}
+
+outputs:
+  image:
+    description: Image reference with tag.
+    value: ${{ steps.prepare.outputs.image }}
+  digest:
+    description: Image digest.
+    value: ${{ steps.build.outputs.digest }}
+  base-image:
+    description: Keycloak base image actually used.
+    value: ${{ steps.prepare.outputs.base-image }}
+  metadata:
+    description: BuildKit build result metadata (JSON).
+    value: ${{ steps.build.outputs.metadata }}
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare build context
+      id: prepare
+      shell: bash
+      env:
+        KEYCLOAK_BASE_IMAGE: ${{ inputs.keycloak-image }}
+        KEYCLOAK_DB: ${{ inputs.db }}
+        KEYCLOAK_HEALTH: ${{ inputs.health-enabled }}
+        KEYCLOAK_METRICS: ${{ inputs.metrics-enabled }}
+        KEYCLOAK_FEATURES: ${{ inputs.features }}
+        KEYCLOAK_FEATURES_DISABLED: ${{ inputs.features-disabled }}
+        KEYCLOAK_THEMES_PATH: ${{ inputs.themes-path }}
+        KEYCLOAK_PROVIDERS_PATH: ${{ inputs.providers-path }}
+        KEYCLOAK_PLATFORMS: ${{ inputs.platforms }}
+        KEYCLOAK_IMAGE_NAME: ${{ inputs.image-name }}
+        KEYCLOAK_IMAGE_TAG: ${{ inputs.image-tag }}
+      run: bash "$GITHUB_ACTION_PATH/scripts/prepare-github-build.sh"
+
+    - name: Set up QEMU
+      if: steps.prepare.outputs.multi-platform == 'true'
+      uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+
+    - name: Set up Buildx
+      uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+    - name: Log in to registry
+      if: inputs.push == 'true' && inputs.registry-password != ''
+      uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+      with:
+        registry: ${{ inputs.registry }}
+        username: ${{ inputs.registry-user }}
+        password: ${{ inputs.registry-password }}
+
+    - name: Build and push
+      id: build
+      uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+      with:
+        context: ${{ steps.prepare.outputs.context }}
+        platforms: ${{ inputs.platforms }}
+        build-args: ${{ steps.prepare.outputs.build-args }}
+        tags: ${{ steps.prepare.outputs.image }}
+        push: ${{ inputs.push == 'true' }}

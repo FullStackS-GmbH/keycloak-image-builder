@@ -30,6 +30,57 @@ to prevent provider-change errors during optimized startup.
 See [component inputs](templates/build-keycloak/docs.md) for all parameters.
 No release tag exists yet; use a real commit SHA after publishing this repository.
 
+## GitHub Actions usage
+
+The repository root is also a composite action. It builds the same `Dockerfile`
+with Buildx, so a Keycloak update from Renovate reaches GitLab and GitHub
+callers alike.
+
+```yaml
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@<sha> # only needed for themes or providers
+        with:
+          persist-credentials: false
+      - id: keycloak
+        uses: FullStackS-GmbH/keycloak-image-builder@<commit-sha>
+        with:
+          image-name: ghcr.io/${{ github.repository_owner }}/keycloak
+          image-tag: ${{ github.sha }}
+          themes-path: keycloak/themes
+          providers-path: keycloak/providers
+          features: scripts
+          push: ${{ github.event_name != 'pull_request' }}
+      - run: echo "Pushed ${{ steps.keycloak.outputs.image }}@${{ steps.keycloak.outputs.digest }}"
+```
+
+Inputs match the GitLab component in kebab case (`keycloak-image`, `db`,
+`health-enabled`, `metrics-enabled`, `features`, `features-disabled`,
+`themes-path`, `providers-path`, `platforms`, `image-name`, `image-tag`,
+`registry`, `registry-user`, `registry-password`) plus `push`. Differences from
+the GitLab component:
+
+- `image-name` defaults to `ghcr.io/<owner>/<repo>` (lowercased) and
+  `image-tag` to the full commit SHA.
+- Login defaults to `ghcr.io` with the workflow token, which needs
+  `packages: write`. Set `registry-password: ''` to skip the login and reuse an
+  earlier `docker/login-action` step.
+- An empty `keycloak-image` uses the pin in `Dockerfile`; the resolved value is
+  the `base-image` output.
+- QEMU is set up automatically when `platforms` lists more than one
+  architecture.
+- Outputs: `image`, `digest`, `base-image`, `metadata`. The resolved build
+  parameters are written to the job summary.
+
+Asset paths are relative to `GITHUB_WORKSPACE` and must stay inside it.
+Inputs reach the build script only through environment variables.
+
 ## Local image build
 
 ```sh
@@ -75,7 +126,7 @@ self-contained component with `make generate`.
 
 ```sh
 make help
-make test              # requires Bash, yq v4, jq and ripgrep
+make test              # requires Bash, yq v4, jq and ripgrep; covers the GitHub Action too
 make test-integration  # also requires Docker, curl and zip; tests the native architecture
 make ci-lint           # requires authenticated glab access to GitLab
 KEYCLOAK_URL=http://localhost:8080 \
