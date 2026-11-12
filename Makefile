@@ -26,10 +26,11 @@ check: ## Check that the generated component matches its sources
 
 lint: check ## Check shell and YAML syntax
 	@set -euo pipefail; for script in scripts/*.sh tests/*.sh; do bash -n "$$script"; done
-	yq eval-all '.' ci/component.yml ci/renovate.yaml templates/build-keycloak/template.yml .gitlab-ci.yml > /dev/null
+	yq eval-all '.' ci/component.yml ci/renovate.yaml templates/build-keycloak/template.yml .gitlab-ci.yml action.yml > /dev/null
 
-test: lint ## Test component inputs, build context and authentication without Docker
+test: lint ## Test component and GitHub Action inputs, build context and authentication without Docker
 	bash tests/component-test.sh
+	bash tests/action-test.sh
 
 test-integration: check ## Build native images and test isolated PostgreSQL startup and custom options
 	bash tests/integration-test.sh
