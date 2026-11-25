@@ -1,4 +1,4 @@
-ARG KEYCLOAK_IMAGE=quay.io/keycloak/keycloak:26.8.2@sha256:723b1d6e254c0fc96d5cffec860c7e0744d6a3277822b865bb538cf891575e41
+ARG KEYCLOAK_IMAGE=quay.io/keycloak/keycloak:26.8.2@sha256:7e66a96e4739239070aeaf72e4c5decf0f7f682cfc725b9f7ea2b336eaba38b3
 FROM ${KEYCLOAK_IMAGE} AS builder
 ARG KC_DB=postgres
 ARG KC_HEALTH_ENABLED=true
